@@ -1,0 +1,37 @@
+# Game assets — NEVER commit these
+*.nod
+*.NOD
+*.dds
+*.DDS
+*.xpr
+*.XPR
+*.nsa
+*.NSA
+*.wav
+*.mp3
+*.ogg
+*.iso
+*.xiso
+
+# Converted output
+out/
+converted_models/
+*.obj
+*.mtl
+
+# Godot import cache
+.godot/
+*.import
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+*.swp
+*~
