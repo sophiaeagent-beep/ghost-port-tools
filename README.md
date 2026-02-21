@@ -12,10 +12,11 @@ pull requests.
 
 | Tool | Input | Output | Status |
 |------|-------|--------|--------|
+| `nil_parser.py` | `.nil` level geometry | `.obj` / `.json` / `.gltf` | Working (all 8 levels) |
 | `nod_to_gltf.py` | `.nod` binary mesh | `.gltf` 2.0 | Working (1391/1401 models) |
-| `xpr_to_png.py` | `.xpr` Xbox texture | `.png` | Planned |
-| `nsa_to_mtl.py` | `.nsa` material def | Material JSON | Planned |
-| `adpcm_decode.py` | Xbox ADPCM audio | `.wav` | Planned |
+| `nsd_model_extractor.py` | `.nsd` entity data | Entity JSON with model refs | Working (315 entities) |
+| `convert_missing_textures.py` | `.dds` Xbox textures | `.png` | Working (480 DDS → 605 PNG) |
+| `vertex_field_analysis.py` | `.nil` vertex data | Analysis report | Research tool |
 
 ## Quick Start
 
@@ -38,7 +39,45 @@ python3 converters/nod_to_gltf.py \
 - No external dependencies (stdlib only)
 - Godot 4.3+ (for the showcase project)
 
-## NOD Format
+## Supported Formats
+
+### NIL Level Geometry (fully decoded)
+
+The `.nil` binary level format used by Nihilistic Software's NOD Engine across two games:
+- **VTMR** (2000, PC): NIL version 27 — all little-endian, split vertex arrays
+- **SC:Ghost** (2003, Xbox/GCN): NIL version 35 — mixed endian, merged vertex records
+
+Both versions share the same magic (`NIL\x10`), header layout, and material table format.
+
+**SC:Ghost NIL v35 Vertex Format (36 bytes):**
+```
++0:   u16 LE  UV_U (normalized: value/65535)
++2:   u16 LE  UV_V (with V-flip: 1.0 - value/65535)
++4:   f32 BE  position X
++8:   f32 BE  position Y
++12:  f32 BE  position Z
++16:  f32 BE  unknown shader param A (range [-2, +2])
++20:  f32 BE  unknown shader param B (range [-2, +2])
++24:  f32 BE  texel density / mipmap LOD bias (geometric /4 series)
++28:  u8[4]   ARGB vertex color
++32:  f32 BE  unknown shader param D (range [-128, +128])
+```
+
+**VTMR cSectorVertex (24 bytes, decoded 2026-02-21):**
+```
++0:   u32 LE  position_index (into separate aVertices[] array)
++4:   u8[4]   RGBA vertex color
++8:   f32 LE  texture U (world-space planar projection)
++12:  f32 LE  texture V (world-space planar projection)
++16:  f32 LE  lightmap U (optional)
++20:  f32 LE  lightmap V (optional)
+```
+
+**Key discovery**: Bytes [16-27] in SC:Ghost are **NOT normal vectors**. All 48 axis/sign
+permutations tested against geometric face normals produce ~90° mean error (random).
+Normals must be computed from triangle geometry.
+
+### NOD Model Meshes
 
 The `.nod` binary mesh format (version 0xA) used by Nihilistic Software's engine:
 
@@ -49,13 +88,34 @@ The `.nod` binary mesh format (version 0xA) used by Nihilistic Software's engine
 
 See [docs/NOD_FORMAT.md](docs/NOD_FORMAT.md) for the complete specification.
 
-## Credits
+## Credits & Acknowledgments
 
-- **RenolY2** — [scg-modeldump](https://github.com/RenolY2/scg-modeldump) (MIT) —
-  original NOD format reverse engineering and OBJ converter. This project's parser
-  is based on their proven `read_nod.py` implementation.
-- **Elyan Labs** — glTF 2.0 converter, Godot integration, format documentation
-- **xemu** project — Xbox emulation that made this research possible
+This project builds on the work of several game preservation researchers:
+
+- **[Ryan Sheffer](https://github.com/rfsheffer)** — Shared the official **Nihilistic Software NodSDK**
+  containing `nil.htm` format documentation. This was the Rosetta Stone that enabled
+  decoding the VTMR cSectorVertex structure and mapping the v27→v35 format evolution.
+  His [nod_nad_to_fbx](https://github.com/rfsheffer/nod_nad_to_fbx) converter provided
+  key insights into the NOD/NAD pipeline.
+
+- **[RenolY2](https://github.com/RenolY2)** — [scg-modeldump](https://github.com/RenolY2/scg-modeldump) (MIT) —
+  Original NOD format reverse engineering and OBJ converter for SC:Ghost. This project's
+  NOD parser is based on their proven `read_nod.py` implementation.
+
+- **[hypov8 (David)](https://github.com/hypov8)** — [Vampire.T.M.R_Noesis_plugin](https://github.com/hypov8/Vampire.T.M.R_Noesis_plugin) —
+  VTMR Noesis plugin that established the critical connection between VTMR and SC:Ghost
+  as products of the same Nihilistic NOD Engine lineage.
+
+- **[hogsy](https://github.com/hogsy)** — [GhostTools](https://github.com/hogsy/GhostTools) —
+  Early SC:Ghost format research. Referenced during initial reverse engineering.
+
+- **Nihilistic Software** (now nStigate Games) — Original engine and game development.
+  The NodSDK modding tools for VTMR provided the foundation for all format documentation.
+
+- **Elyan Labs** — NIL level parser, glTF 2.0 converter, VTMR cSectorVertex decode,
+  vertex field analysis, Godot 4.3 integration, NSD entity extraction.
+
+- **xemu** project — Xbox emulation that made SC:Ghost research possible.
 
 ## Legal
 
